@@ -16,8 +16,11 @@ def expandir_nodo(
     nodo: Nodo_Binario,
     visitados: 'list[str | int]'
 ) -> 'list[str | int]':
-    # Verificamos que los nodos en la expancion no estan repetidos
-    # aquel nodo repetido es descartado de la expancion.
+    '''
+        Verificamos que los nodos en la
+        expanción no estan repetidos aquel
+        nodo repetido es descartado de la expanción.
+    '''
     expancion = []
     for id_expancion in nodo.get_hijos():
         if id_expancion not in visitados and id_expancion is not None:
@@ -26,8 +29,13 @@ def expandir_nodo(
     return expancion
 
 
-def DFS(arbol: Arbol_Binario) -> 'Generator[list[str | int], None, None]':
-    # Recorre el arbol con el algorito Deep Search First.
+def DFS(
+    arbol: Arbol_Binario
+) -> 'Generator[list[str | int], None, None]':
+    '''
+        Recorre el árbol con el
+        algorito Deep Search First.
+    '''
 
     # Pila de recorridos.
     pila_recorrido = []

@@ -23,7 +23,7 @@ import pandas as pd
 # Librerias propias.
 from util.constantes import FORMATOS_VALIDOS
 from util.graficador import graficar_arbol_binario
-from esquema.huffman import Arbol_Huffman_Modificado
+from esquema.huffman import Arbol_Huffman_Modificado, Arbol_Huffman
 from util.archivos import analizar_archivo, nombre_generico
 
 
@@ -154,14 +154,69 @@ def pruebas(
     rescritura: bool,
     grafico: bool,
     log: bool,
+    dir_binario: 'str | None'
 ) -> None:
     # Directorio donde se encuentran los archivos de prueba.
     dir_archivos = pathlib.Path(dir_archivos)
+
+    # Delcaramos el binario.
+    binario = None
 
     # Si el directorio no existe, entonces se levanta
     # una excepción.
     if not dir_archivos.is_dir() and not dir_archivos.is_file():
         raise Exception('El directorio o archivo no existe')
+
+    if dir_binario != None:
+        # Se paso un archivo de texto plano para
+        # embeber como secreto en los archivos de prueba.
+        dir_binario = pathlib.Path(dir_binario)
+
+        # Verificamos que el binario sea un archivo de formato valido.
+        if not dir_binario.is_file():
+            raise Exception('El binario debe de ser un archivo')
+
+        if dir_binario.suffix.lower() not in FORMATOS_VALIDOS:
+            raise Exception('el formato del archivo binario no es valido')
+
+        # Realizamos el análisis estadistico del árbol de huffman.
+        frec_bin, alf_bin = analizar_archivo(dir_binario)
+
+        # Creamos un esquema para el documento que se guardara como el secreto.
+        esquema_secreto = Arbol_Huffman(alf_bin, frec_bin)
+
+        # Generamos la tabla de codificación del esquema del binario.
+        esquema_secreto.generar_tabla_codigos()
+
+        # Codificamos el binario.
+        binario = esquema_secreto.codificar(medio=dir_binario)
+
+        # Generamos el grafico del esquema.
+        if grafico:
+            graficar_arbol_binario(
+                esquema_secreto,
+                dir_binario.name.split('.')[0]
+            )
+
+            esquema_secreto.log[
+                esquema_secreto.contar.__next__()
+            ] = 'Grafico de árbol de huffman guardado en {}'.format(
+                dir_binario.name.split('.')[0] + '.svg'
+            )
+
+        if log:
+            with open(
+                dir_binario.name.split('.')[0] + '.log',
+                'w+',
+                encoding='UTF-8'
+            ) as archivo_log:
+                for id_log in esquema_secreto.log:
+                    archivo_log.write(
+                        '[LOG: {}]: {}\n'.format(
+                            id_log,
+                            esquema_secreto.log[id_log]
+                        )
+                    )
 
     total_archivos = 0
     resultados = {
@@ -201,7 +256,8 @@ def pruebas(
 
         # Generamos un secreto que abarque
         # todos los espacios disponibles.
-        binario = bitarray.bitarray(longitud_texto)
+        if binario is None:
+            binario = bitarray.bitarray(longitud_texto)
 
         # Calculamos la longitud del secreto.
         longitud_binario = len(binario)
@@ -221,7 +277,7 @@ def pruebas(
         huffman_mod.generar_tabla_codigos()
 
         # Codificamos el texto.
-        stego,llave = huffman_mod.codificar(
+        stego, llave = huffman_mod.codificar(
             fichero,
             None,
             longitud_texto,
@@ -278,6 +334,40 @@ def pruebas(
         if int(comparacion.to01(), 2) == 0:
             print('Binario recuperado correctamente')
 
+            if dir_binario is not None:
+
+                # Decodificamos el binario secreto recuperado
+                # con el esquema para el binario.
+                texto_secreto = esquema_secreto.decodificar(
+                    binario_recuperado
+                )
+
+                # Creamos un nombre para el archivo del texto secreto recuperado.
+                dir_binario_recuperado = dir_binario.name.split('.')[0]
+                dir_binario_recuperado +=  '_recuperado_secreto.txt'
+                dir_binario_recuperado = pathlib.Path(dir_binario_recuperado)
+
+                # Creamos el archivo con el texto del secreto.
+                with open(dir_binario_recuperado, 'w+', encoding='utf-8') as bin_rec:
+                    bin_rec.write(texto_secreto)
+
+                # Comparamos el contenido del archivo
+                # seleccionado como el binario y el texto secreto recuperado.
+                comparacion = filecmp.cmp(
+                    dir_binario,
+                    dir_binario_recuperado,
+                    shallow=False
+                )
+
+                # Mostramos la comparación
+                if comparacion:
+                    mensaje = 'El archivo seleccionado como binario {} es '
+                    mensaje += 'similar al texto secreto {} recuperado'
+                    print(mensaje.format(
+                        dir_binario.name,
+                        dir_binario_recuperado.name
+                    ))
+
         # Calculamos la longitud del stego.
         longitud_stego = len(stego)
         resultados['Stego (bits)'][total_archivos] = longitud_stego
@@ -304,6 +394,11 @@ def pruebas(
                 fichero.name.split('.')[0]
             )
 
+            graficar_arbol_binario(
+                huffman_mod.huffman_normal,
+                fichero.name.split('.')[0] + '_normal'
+            )
+
             huffman_mod.log[
                 huffman_mod.contar.__next__()
             ] = 'Grafico de árbol de huffman guardado en {}'.format(
@@ -327,6 +422,60 @@ def pruebas(
         total_archivos += 1
 
     else:
+        binario_recuperado_completo = {}
+
+        ficheros = {
+        }
+
+        a = 0
+        b = 0
+        a_aux = 0
+
+        total_ficheros = 0
+        for fichero in dir_archivos.iterdir():
+            # Calculamos las frecuencias y el alfabeto del fichero.
+            frecuencias, alfabeto = analizar_archivo(fichero)
+
+            longitud_texto = sum(frecuencias)
+
+            if dir_binario is not None:
+                if a > -1:
+                    # Si se paso un archivo para ser parte del binario,
+                    # el binario es seccionado para que pueda ser 
+                    # embebido en la mayoria o todos los archivos.
+                    b = a + longitud_texto if a + longitud_texto < len(binario) else -1
+                    if b == -1:
+                        binario_asignado = binario[
+                            a:
+                        ]
+                    else:
+                        binario_asignado = binario[
+                            a:b
+                        ]
+                    a_aux = a
+                    a = b
+                else:
+                    binario_asignado = bitarray.bitarray()
+
+            else:
+                # Generamos un secreto que abarque
+                # todos los espacios disponibles.
+                binario_asignado = bitarray.bitarray(longitud_texto)
+
+            # Asignamos los datos del fichero.
+            datos_fichero = {
+                'frecuencias': frecuencias,
+                'alfabeto': alfabeto,
+                'capacidad': longitud_texto,
+                'binario': binario_asignado,
+                'seccion': (a_aux, b)
+            }
+
+            ficheros[fichero.name] = datos_fichero
+
+            total_ficheros += 1
+
+        print('Cargando {} archivos'.format(total_ficheros))
 
         # Listamos todos los arhicvos del directorio.
         for fichero in dir_archivos.iterdir():
@@ -347,21 +496,25 @@ def pruebas(
                     'Peso archivo (bits)'
                 ][total_archivos] = fichero.stat().st_size * 8
 
+                datos_fichero = ficheros[fichero.name]
+
                 # Calculamos las frecuencias y el alfabeto.
-                frecuencias, alfabeto = analizar_archivo(fichero)
+                frecuencias = datos_fichero['frecuencias']
+                alfabeto = datos_fichero['alfabeto']
 
                 # Calculamos la longitud del texto.
-                longitud_texto = sum(frecuencias)
+                longitud_texto = datos_fichero['capacidad']
+
+                # Generamos un secreto que abarque
+                # todos los espacios disponibles.
+                binario_seleccionado = datos_fichero['binario']
+
                 resultados[
                     'Cantidad Simbolos'
                 ][total_archivos] = longitud_texto
 
-                # Generamos un secreto que abarque
-                # todos los espacios disponibles.
-                binario = bitarray.bitarray(longitud_texto)
-
                 # Calculamos la longitud del secreto.
-                longitud_binario = len(binario)
+                longitud_binario = len(binario_seleccionado)
                 resultados[
                     'Bits Secretos (bits)'
                 ][total_archivos] = longitud_binario
@@ -382,7 +535,7 @@ def pruebas(
                     fichero,
                     None,
                     longitud_texto,
-                    binario,
+                    binario_seleccionado,
                     rescritura,
                     salida_datos=False
                 )
@@ -423,9 +576,12 @@ def pruebas(
                 binario_recuperado = huffman_mod.reacomodar_secreto(
                     secreto,
                     llave,
-                    binario.to01()
+                    binario_seleccionado.to01()
                 )
-                comparacion = binario ^ binario_recuperado
+                comparacion = binario_seleccionado ^ binario_recuperado
+
+                if dir_binario is not None:
+                    binario_recuperado_completo[fichero.name] = binario_recuperado
 
                 mensaje = 'Binario comparado con el secreto recuperado: {}'
                 huffman_mod.log[huffman_mod.contar.__next__()] = mensaje.format(
@@ -461,6 +617,11 @@ def pruebas(
                         fichero.name.split('.')[0]
                     )
 
+                    graficar_arbol_binario(
+                        huffman_mod.huffman_normal,
+                        fichero.name.split('.')[0] + '_normal'
+                    )
+
                     huffman_mod.log[
                         huffman_mod.contar.__next__()
                     ] = 'Grafico de árbol de huffman guardado en {}'.format(
@@ -485,8 +646,47 @@ def pruebas(
 
     dataset = pd.DataFrame(
         resultados, index=[
-            'Medio {}'.format(i) for i in range(total_archivos)
+            'Medio {}'.format(i + 1) for i in range(total_archivos)
     ])
+
+    if dir_binario is not None:
+        binario_completo_recuperado = bitarray.bitarray(''.join(
+            [bin.to01() for bin in binario_recuperado_completo.values()]
+        ))
+
+        if int((binario_completo_recuperado ^ binario).to01(), 2) == 0:
+            print('Binario recuperado correctamente')
+
+            texto_secreto = esquema_secreto.decodificar(
+                binario_completo_recuperado
+            )
+
+            # Creamos un nombre para el archivo del texto secreto recuperado.
+            dir_binario_recuperado = dir_binario.name.split('.')[0]
+            dir_binario_recuperado +=  '_recuperado_secreto.txt'
+            dir_binario_recuperado = pathlib.Path(dir_binario_recuperado)
+
+            # Creamos el archivo con el texto del secreto.
+            with open(dir_binario_recuperado, 'w+', encoding='utf-8') as bin_rec:
+                bin_rec.write(texto_secreto)
+
+            # Comparamos el contenido del archivo
+            # seleccionado como el binario y el texto secreto recuperado.
+            comparacion = filecmp.cmp(
+                dir_binario,
+                dir_binario_recuperado,
+                shallow=False
+            )
+
+            # Mostramos la comparación
+            if comparacion:
+                mensaje = 'El archivo seleccionado como binario {} es '
+                mensaje += 'similar al texto secreto {} recuperado'
+                print(mensaje.format(
+                    dir_binario.name,
+                    dir_binario_recuperado.name
+                ))
+
 
     print('-'*50)
     print(dataset.to_string())
@@ -545,6 +745,11 @@ def codificar(
         graficar_arbol_binario(
             huffman_mod,
             archivo_cod
+        )
+
+        graficar_arbol_binario(
+            huffman_mod.huffman_normal,
+            archivo_cod + '_normal'
         )
 
         huffman_mod.log[
@@ -635,6 +840,11 @@ def decodificar(
             archivo_decod
         )
 
+        graficar_arbol_binario(
+            huffman_mod.huffman_normal,
+            archivo_decod + '_normal'
+        )
+
     if log:
         with open(
             archivo_decod + '.log',
@@ -716,7 +926,8 @@ def main(
             benchmark,
             rescritura,
             grafico,
-            log
+            log,
+            binario
         )
 
     elif dir_archivo_cod is not None:

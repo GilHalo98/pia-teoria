@@ -4,11 +4,11 @@
 
 
 # Librerias estandar.
-import time
 import copy
 import random
 import pickle
 import pathlib
+import datetime
 import itertools
 
 # Librerias Propias
@@ -16,6 +16,7 @@ from util.decoradores import time_it
 from util.archivos import iterador_archivo
 from estructuras_datos.nodo import Nodo_Binario
 from estructuras_datos.recoridos_arbol import DFS
+from util.graficador import graficar_arbol_binario
 from estructuras_datos.arbol_binario import Arbol_Binario
 
 # Librerias de terceros.
@@ -83,6 +84,9 @@ class Arbol_Huffman(Arbol_Binario):
         # Se construye el arbol binario desde la parte inferior, o
         # los nodos hasta la raiz.
         # Limpiamos el arbol binario.
+        mensaje = 'Iniciamos la construcción del arbol binario'
+        self.log[self.contar.__next__()] = mensaje
+
         self.flush()
 
         # Limpiamos tambien la tabla de codificacion.
@@ -96,6 +100,19 @@ class Arbol_Huffman(Arbol_Binario):
             self.alfabeto.index,
             self.alfabeto
         )
+
+        mensaje = 'Agregamos los primeros nodos al arbol binario'
+        mensaje += ', nodos agregados:\n'
+        # Agregamos las hojas al arbol binario.
+        for simbolo, id_hoja in simbolo_id:
+            mensaje += '\t{}\n'.format(id_hoja)
+            self[id_hoja] = Nodo_Binario(
+                id_hoja,
+                valor=self.frecuencias[id_hoja],
+                simbolo=simbolo
+            )
+
+        self.log[self.contar.__next__()] = mensaje
 
         # Agregamos las hojas al arbol binario.
         for simbolo, id_hoja in simbolo_id:
@@ -114,14 +131,34 @@ class Arbol_Huffman(Arbol_Binario):
         # Ahora construimos el arbol desde las hojas hasta la raiz.
         s = 0
         while not frecuencias_aux.empty:
+            mensaje = 'Organizamos las frecuencias de manera ascendente\n'
+            mensaje += frecuencias_aux.to_string()
+            self.log[self.contar.__next__()] = mensaje
+
             # Extraemos los simbolos con menor frecuencia.
             simbolo_a = frecuencias_aux.index[0]
             simbolo_b = frecuencias_aux.index[1]
+
+            mensaje = 'Se seleccionan los dos simbolos '
+            mensaje += 'o sigmas con menor frecuencia '
+            mensaje += '{} y {} son seleccionados'
+            self.log[
+                self.contar.__next__()
+            ] = mensaje.format(simbolo_a, simbolo_b)
 
             # Calculamos su sigma, una suma de las frecuencias de ambos
             # simbolos.
             id_sigma = 'N{}'.format(s)
             sigma = frecuencias_aux[simbolo_a] + frecuencias_aux[simbolo_b]
+
+            mensaje = 'Calculamos el sigma de {} y {} = {}'
+            mensaje += ' y agregamos el nodo {} con el valor del sigma'
+            self.log[self.contar.__next__()] = mensaje.format(
+                simbolo_a,
+                simbolo_b,
+                sigma,
+                id_sigma
+            )
 
             # Se agrega el sigma a una tabla de frecuencias de sigma.
             self.frecuencias_sigma[id_sigma] = sigma
@@ -140,6 +177,14 @@ class Arbol_Huffman(Arbol_Binario):
             else:
                 id_der = simbolo_b
                 id_izq = simbolo_a
+
+            mensaje = 'El simbolo {} va a la derecha'
+            mensaje += ' y el simbolo {} va a la izquierda de {}'
+            self.log[self.contar.__next__()] = mensaje.format(
+                id_der,
+                id_izq,
+                id_sigma
+            )
 
             # Actualizamos la conexion del padre de los hijos del nodo
             # sigma.
@@ -162,6 +207,10 @@ class Arbol_Huffman(Arbol_Binario):
             # Si existe un unico elemento, eso quiere decir que
             # encontramos la raiz.
             if len(frecuencias_aux) <= 1:
+                mensaje = 'Se termino de generar el'
+                mensaje += ' arbol de huffman exitosamente'
+                self.log[self.contar.__next__()] = mensaje
+
                 break
 
             # Organizamos las frecuencias de manera decendente.
@@ -173,6 +222,11 @@ class Arbol_Huffman(Arbol_Binario):
         # El ultimo sigma calculado es la raiz del arbol.
         self.raiz = id_sigma
 
+        mensaje = 'La raiz del arbol es el nodo {}'
+        self.log[self.contar.__next__()] = mensaje.format(
+            self.raiz
+        )
+
         # Se cuentan el total de nodos en el arbol.
         self.total_nodos = len(self)
 
@@ -181,6 +235,8 @@ class Arbol_Huffman(Arbol_Binario):
 
     def generar_tabla_codigos(self) -> None:
         # Se genera la tabla de codificacion del esquema.
+        mensaje = 'Iniciamos la creación de las tablas de codificación'
+        self.log[self.contar.__next__()] = mensaje
 
         # Generamos el arbol binario.
         self.__construir_arbol_binario()
@@ -188,6 +244,10 @@ class Arbol_Huffman(Arbol_Binario):
         # indicamos el recorrido a usar para crear la tabla, en este 
         # se usara DFS.
         recorridos = DFS(self)
+
+        mensaje = 'Se utilizara un recorrido primero por profundidad'
+        mensaje += ' (DFS) para crear las tablas de codigos'
+        self.log[self.contar.__next__()] = mensaje
 
         # Por cada recorrido.
         for recorrido in recorridos:
@@ -197,8 +257,17 @@ class Arbol_Huffman(Arbol_Binario):
             # Nodo actual
             nodo: Nodo_Binario = self[id_nodo]
 
+            mensaje = 'Recorrido terminado: {}'
+            self.log[self.contar.__next__()] = mensaje.format(
+                recorrido
+            )
+
             # Si el nodo es una hoja o un simbolo.
             if nodo.es_hoja():
+                mensaje = 'El nodo {} es hoja'
+                self.log[self.contar.__next__()] = mensaje.format(
+                    id_nodo
+                )
                 # Codigo del simbolo.
                 codigo = ''
 
@@ -214,33 +283,97 @@ class Arbol_Huffman(Arbol_Binario):
                     codigo += str(costo)
                     i += 1
 
+                mensaje = 'Código de {}: {}'
+                self.log[self.contar.__next__()] = mensaje.format(
+                    id_nodo,
+                    codigo
+                )
+
+                mensaje = 'Nodo {} agregado en la tabla de codificación'
+
+                self.log[self.contar.__next__()] = mensaje.format(
+                    id_nodo
+                )
+
                 # Agrega el codigo a la tabla de codificacion.
                 self.tabla_codificacion[
                     nodo.propiedades['simbolo']
                 ] = codigo
 
-    def codificar(self, texto: str) -> str:
-        # Codifica un texto dado con el esquema.
-        texto_codificado = ''
+        mensaje = 'Tablas de codificación generadas:\n{}'
+        self.log[self.contar.__next__()] = mensaje.format(
+            self.tabla_codificacion.to_string()
+        )
 
-        for caracter in texto:
-            codigo = self.tabla_codificacion[caracter]
-            texto_codificado += codigo
+        # Longitud de entrada es 1 byte por simbolo.
+        Ls = self.longitud_promedio_salida() 
+        r = self.radio_comprecion(Ls, 8)
+        self.log[
+            self.contar.__next__()
+        ] = 'Longitud promedio y radio de compreción calculada de huffman modificado: R = {}, Ls = {}'.format(
+            round(r, 4),
+            round(Ls, 4)
+        )
 
-        return texto_codificado
+    def codificar(
+        self,
+        T: 'str | None' = None,
+        medio: 'pathlib.Path | None' = None,
+    ) -> 'bitarray.bitarray':
+        '''
+            Codifica el cover pasado, si el cover se encuentra
+            en T, etonces se asume que es el texto cargado y se
+            codifica directamente, si el se encuentra en medio
+            entonces se carga en memoria el archivo y se
+            codifica el contenido del archivo.
+        '''
 
-    def decodificar(self, texto_codificado: str) -> str:
+        # Codificación del cover en formato str.
+        codificacion = ''
+
+        # Si T esta vacio, se revisa por el medio.
+        if T is None:
+            # Iterador del contenido del archivo.
+            archivo = iterador_archivo(medio)
+
+            # Ahora terminamos de codifiar el texto sobrante.
+            for caracter in archivo:
+                # Consultamos el codigo del caracter.
+                codigo = self.tabla_codificacion[caracter]
+
+                # Codigo a agregar en el stego.
+                codificacion += codigo
+
+        # Si T no esta vacio, entonces se codifica T.
+        else:
+            # Ahora terminamos de codifiar el texto sobrante.
+            for caracter in T:
+                # Consultamos el codigo del caracter.
+                codigo = self.tabla_codificacion[caracter]
+
+                # Codigo a agregar en el stego.
+                codificacion += codigo
+
+        # Guardamos la codificación del texto en formato binario.
+        buffer_codificacion = bitarray.bitarray(codificacion)
+
+        return buffer_codificacion
+
+    def decodificar(
+        self,
+        texto_codificado: 'str | bitarray.bitarray'
+    ) -> str:
         # Decodifica un texto codificado con el esquema.
         texto = ''
 
         # Puntero auxiliar.
         puntero = self.raiz
 
-        # Por cada simbolo en el texto codificado.
-        for simbolo_bit in texto_codificado:
-            # Recuperamos el bit.
-            bit = int(simbolo_bit)
+        if type(texto_codificado) is str:
+            texto_codificado = bitarray.bitarray(texto_codificado)
 
+        # Por cada simbolo en el texto codificado.
+        for bit in texto_codificado:
             # Instanciamos el nodo del puntero.
             nodo: Nodo_Binario = self[puntero]
 
@@ -303,15 +436,18 @@ class Arbol_Huffman(Arbol_Binario):
 
             # Calculamos la longitud promedio de salida,
             # longitud del codigo * frecuencia de simbolo.
-            Ls += len(codigo) * self.frecuencias[id]
+            if self.frecuencias[id] != np.inf and self.frecuencias[id] > 0:
+                Ls += len(codigo) * (self.frecuencias[id] / sum(self.org_frecuencias))
 
         # Las unidades son equivalentes al tipo de operacion.
         return Ls
 
-    def radio_comprecion(self, Le: float) -> float:
+    def radio_comprecion(
+        self,
+        Ls: float,
+        Le: float
+    ) -> float:
         # Calcula el radio de comprecion del esquema.
-        Ls = self.longitud_promedio_salida()
-
         return Le / Ls
 
 
@@ -325,27 +461,66 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
         # Constructor de la clase padre.
         super().__init__(alfabeto, frecuencias)
 
-        # Agregamos las modificaciones
-        # necesarias para poder implementar
-        # el algoritmo.
-        self.alfabeto['ES'] = 'ES'
-        self.alfabeto['Mx'] = 'Mx'
-
-        self.frecuencias['ES'] = 0
-        self.frecuencias['Mx'] = np.inf
-
         if len(self.frecuencias) > 0:
+            # Se instancia un arbol de huffman regular, esto para
+            # "comparar" con el arbol de huffman modificado.
+            self.huffman_normal = Arbol_Huffman(alfabeto, frecuencias)
+
+            # Se generan la tabla de codificación.
+            self.huffman_normal.generar_tabla_codigos()
+
+            # Se calcula el radio de comprecion.
+            self.Ls_c = self.huffman_normal.longitud_promedio_salida()
+            self.r_c = self.huffman_normal.radio_comprecion(self.Ls_c, 8)
+
             mensaje = 'Se agregan los simbolos ES y Mx y'
             mensaje += ' sus frecuencias 0 e infinito.\n{}'
             self.log[self.contar.__next__()] = mensaje.format(
                 self.frecuencias
             )
 
+            # Agregamos las modificaciones
+            # necesarias para poder implementar
+            # el algoritmo.
+            self.alfabeto['ES'] = 'ES'
+            self.alfabeto['Mx'] = 'Mx'
+
+            self.frecuencias['ES'] = 0
+            self.frecuencias['Mx'] = np.inf
+
         # Tabla de codificacion izquierda.
         self.tabla_codificacion_izquierda = pd.Series(dtype=str)
 
         # Tabla de codificacion derecha.
         self.tabla_codificacion_derecha = pd.Series(dtype=str)
+
+    def longitud_promedio_salida(self) -> float:
+        Ls = 0
+
+        # Por cada simbolo en el alfabeto.
+        for simbolo in self.tabla_codificacion_derecha.index:
+            # Buscamos su codigo.
+            codigo = self.tabla_codificacion_derecha[simbolo]
+            id = self.alfabeto[simbolo]
+
+            # Calculamos la longitud promedio de salida,
+            # longitud del codigo * frecuencia de simbolo.
+            if self.frecuencias[id] != np.inf and self.frecuencias[id] > 0:
+                Ls += len(codigo) * (self.frecuencias[id] / sum(self.org_frecuencias))
+
+        # Por cada simbolo en el alfabeto.
+        for simbolo in self.tabla_codificacion_izquierda.index:
+            # Buscamos su codigo.
+            codigo = self.tabla_codificacion_izquierda[simbolo]
+            id = self.alfabeto[simbolo]
+
+            # Calculamos la longitud promedio de salida,
+            # longitud del codigo * frecuencia de simbolo.
+            if self.frecuencias[id] != np.inf and self.frecuencias[id] > 0:
+                Ls += len(codigo) * (self.frecuencias[id] / sum(self.org_frecuencias))
+
+        # Las unidades son equivalentes al tipo de operacion.
+        return Ls
 
     def __construir_arbol_binario(
         self,
@@ -491,13 +666,20 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
         # Modificamos el arbol.
         self.__modificar_arbol()
 
-        # self[self.raiz].propiedades['valor'] = sum(self.org_frecuencias)
-
         # Se cuentan el total de nodos en el arbol.
         self.total_nodos = len(self)
 
         # Restablecemos las frecuencias originales.
         self.frecuencias = self.org_frecuencias.copy()
+
+        # Agregamos las modificaciones
+        # necesarias para poder implementar
+        # el algoritmo.
+        self.alfabeto['ES'] = 'ES'
+        self.alfabeto['Mx'] = 'Mx'
+
+        self.frecuencias['ES'] = 0
+        self.frecuencias['Mx'] = np.inf
 
     def __modificar_arbol(
         self,
@@ -583,8 +765,35 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
             self[id] = sub_arbol[id]
 
         # Eliminamos el nodo ES en la derecha.
+        padre_res: Nodo_Binario = self[self['RES'].padre]
+
+        hermano_res: Nodo_Binario = self[self[padre_res.id_nodo].hijo_derecha]
+
+        padre_padre_res: Nodo_Binario = self[padre_res.padre]
+
+        if padre_padre_res.hijo_izquierda == padre_res.id_nodo:
+            padre_padre_res.hijo_izquierda = hermano_res.id_nodo
+            ms = 'hijo izquiedo de {}'.format(
+                padre_padre_res.id_nodo
+            )
+        else:
+            padre_padre_res.hijo_derecha = hermano_res.id_nodo
+            ms = 'hijo derecho de {}'.format(
+                padre_padre_res.id_nodo
+            )
+        hermano_res.padre = padre_padre_res.id_nodo
+
+        mensaje = 'Eliminamos el nodo RES y conectamos el {} con el nodo {}'
+        self.log[
+            self.contar.__next__()
+        ] = mensaje.format(
+            ms,
+            hermano_res.id_nodo
+        )
+
         self[self['RES'].padre].hijo_izquierda = None
         del self['RES']
+        del self[padre_res.id_nodo]
 
         mensaje = 'Nodo RES del sub arbol derecho eliminado'
         self.log[self.contar.__next__()] = mensaje
@@ -677,14 +886,62 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
                     id_nodo
                 )
 
-        mensaje = 'Tabla de codificación derecha generada:\n{}'
-        self.log[self.contar.__next__()] = mensaje.format(
-            self.tabla_codificacion_derecha.to_string()
+        # Preparamos las tablas de codificacion, tanto del
+        # árbol de huffman canonico como del modificado en un
+        # dataframe para mostrar en el log.
+        tablas_codificaciones = {
+            'cod. tabla sub-arbol izq. huffman mod.': [],
+            'cod. tabla sub-arbol der. huffman mod.': [],
+            'cod. tabla arbol huffman': [],
+        }
+
+        for simbolo in self.alfabeto.index:
+            # Codificación del simbolo en la tabla del LMH.
+            codificacion = '-'
+            if simbolo in self.tabla_codificacion_izquierda.index:
+                codificacion = self.tabla_codificacion_izquierda[simbolo]
+
+            tablas_codificaciones['cod. tabla sub-arbol izq. huffman mod.'].append(codificacion)
+
+            # Codificación del simbolo en la tabla del RMH.
+            codificacion = '-'
+            if simbolo in self.tabla_codificacion_derecha.index:
+                codificacion = self.tabla_codificacion_derecha[simbolo]
+            tablas_codificaciones['cod. tabla sub-arbol der. huffman mod.'].append(codificacion)
+
+            # Codificación del simbolo en la tabla del Huffman.
+            codificacion = '-'
+            if simbolo in self.huffman_normal.tabla_codificacion.index:
+                codificacion = self.huffman_normal.tabla_codificacion[simbolo]
+            tablas_codificaciones['cod. tabla arbol huffman'].append(codificacion)
+
+        # Creamos un dataframe con las tablas de codificación.
+        tablas_codificaciones = pd.DataFrame(
+            tablas_codificaciones,
+            self.alfabeto.index
         )
 
-        mensaje = 'Tabla de codificación izquerda generada:\n{}'
+        mensaje = 'Tablas de codificación generadas:\n{}'
         self.log[self.contar.__next__()] = mensaje.format(
-            self.tabla_codificacion_izquierda.to_string()
+            tablas_codificaciones.to_string()
+        )
+
+        # Longitud de entrada es 1 byte por simbolo.
+        Ls = self.longitud_promedio_salida() 
+        r = self.radio_comprecion(Ls, 8)
+
+        self.log[
+            self.contar.__next__()
+        ] = 'Longitud promedio y radio de compreción calculada de huffman: R = {}, Ls = {}'.format(
+            round(self.r_c, 4),
+            round(self.Ls_c, 4)
+        )
+
+        self.log[
+            self.contar.__next__()
+        ] = 'Longitud promedio y radio de compreción calculada de huffman modificado: R = {}, Ls = {}'.format(
+            round(r, 4),
+            round(Ls, 4)
         )
 
     def reacomodar_secreto(
@@ -790,6 +1047,15 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
             )
             comparacion = int((bitarray.bitarray(binario) ^ binario_recuperado).to01(), 2)
 
+        hoy = datetime.datetime.now()
+        seed = '{}{}{}{}'.format(
+            hoy.day,
+            hoy.hour,
+            hoy.minute,
+            hoy.second,
+            hoy.microsecond
+        )
+        print('Semilla usada: {}'.format(seed))
         print('Llave generada: {}'.format(semilla))
 
         '''
@@ -801,6 +1067,15 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
         # Establecemos la semilla para el generador
         # de numeros aleatorios.
         random.seed(semilla)
+
+        self.log[self.contar.__next__()] = 'La semilla usada es {}'.format(
+            seed
+        )
+
+        mensaje = 'Periodo del Generador Pseudoaleatorio de numeros {}'
+        self.log[self.contar.__next__()] = mensaje.format(
+            '(2^19937) - 1'
+        )
 
         self.log[self.contar.__next__()] = 'La llave a usar es {}'.format(
             semilla
@@ -949,6 +1224,12 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
         # Verificamos si el stego es multiplo de 8.
         relleno = len(buffer_stego) % 8
 
+        self.log[
+            self.contar.__next__()
+        ] = 'Codificación del stego {}'.format(
+            buffer_stego.to01()
+        )
+
         # Si es necesario rellenarlo.
         if relleno > 0:
             # Calculamos la cantidad de bits que el relleno del
@@ -964,15 +1245,8 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
             while len(self.__dec_relleno(bits_relleno)) > 0:
                 bits_relleno = bitarray.bitarray(combinaciones.__next__())
 
-
-        self.log[
-            self.contar.__next__()
-        ] = 'Codificación del stego {}'.format(
-            buffer_stego.to01()
-        )
-
-        # Extendemos los bits del stego para que sea multiplo de 8.
-        buffer_stego.extend(bits_relleno)
+            # Extendemos los bits del stego para que sea multiplo de 8.
+            buffer_stego.extend(bits_relleno)
 
         if salida_datos:
             # Si la dirección al archivo es de tipo string, entonces se
@@ -1317,7 +1591,7 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
 
             self.raiz = datos['raiz']
             self.alfabeto = datos['alfabeto']
-            self.frecuencias = datos['frecuencias']
+            self.org_frecuencias = datos['org_frecuencias']
             self.tabla_codificacion_derecha = datos[
                 'tabla_codificacion_derecha'
             ]
@@ -1328,7 +1602,7 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
             self.log[
                 self.contar.__next__()
             ] = 'Frecuencias cargadas\n{}'.format(
-                self.frecuencias.to_string()
+                self.org_frecuencias.to_string()
             )
 
             self.log[
@@ -1362,6 +1636,39 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
                 ] = 'Nodo {} cargado en árbol binario'.format(
                     nodo.id_nodo
                 )
+
+        # Restablecemos las frecuencias originales.
+        self.frecuencias = self.org_frecuencias.copy()
+
+        # Eliminamos ES y Mx del alfabeto para el huffman normal.
+        alfabeto_aux = self.alfabeto.drop('ES')
+        alfabeto_aux = alfabeto_aux.drop('Mx')
+
+        # Se instancia un arbol de huffman regular, esto para
+        # "comparar" con el arbol de huffman modificado.
+        self.huffman_normal = Arbol_Huffman(
+            alfabeto_aux,
+            self.frecuencias
+        )
+
+        # Se generan la tabla de codificación.
+        self.huffman_normal.generar_tabla_codigos()
+
+        # Se calcula el radio de comprecion.
+        self.Ls_c = self.huffman_normal.longitud_promedio_salida()
+        self.r_c = self.huffman_normal.radio_comprecion(
+            self.Ls_c,
+            8
+        )
+
+        # Agregamos las modificaciones
+        # necesarias para poder implementar
+        # el algoritmo.
+        self.alfabeto['ES'] = 'ES'
+        self.alfabeto['Mx'] = 'Mx'
+
+        self.frecuencias['ES'] = 0
+        self.frecuencias['Mx'] = np.inf
 
     def serizalizar_datos(
         self,
@@ -1397,7 +1704,7 @@ class Arbol_Huffman_Modificado(Arbol_Huffman):
                 'tabla_codificacion_izquierda': self.tabla_codificacion_izquierda,
                 'tabla_codificacion_derecha': self.tabla_codificacion_derecha,
                 'alfabeto': self.alfabeto,
-                'frecuencias': self.org_frecuencias,
+                'org_frecuencias': self.org_frecuencias,
                 'arbol_binario': topologia,
                 'raiz': self.raiz
             }
